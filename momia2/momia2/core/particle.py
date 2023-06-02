@@ -14,8 +14,8 @@ class Particle:
                  data,
                  ref_channel,
                  particle_id,
+                 offset,
                  pixel_microns=0.065,
-                 offset=(0, 0),
                  outline=np.array([[]])):
         self.bbox = bbox
         self.outline = outline

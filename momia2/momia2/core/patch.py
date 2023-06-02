@@ -37,6 +37,7 @@ class Patch:
         self.prob_mask = None
         self.pixel_microns = 0.065
         self.shape = (2048, 2048)
+        self.offset = (0,0)
         self.channels = []
         self.ref_channel = ''
         self.bbox = ()
@@ -123,6 +124,7 @@ class Patch:
             w1, w2 = crop_width, self.shape[1] - crop_width
             h1, h2 = crop_height, self.shape[0] - crop_height
             self.shape = (h2 - h1, w2 - w1)
+            self.offset = (crop_height, crop_width)
         else:
             raise ValueError('Edge fraction should be no higher than 0.4 (40% from each side)!')
 
