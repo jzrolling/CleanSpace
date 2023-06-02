@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: momia2
+Version: 0.1
+Summary: Mycobacteria-optimized microscopy image analysis version 2 (sort of)
+Author: jz-rolling
+Author-email: juzhu@hsph.harvard.edu
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+License-File: LICENSE
+
+# momia2 development version
+### This version is currently being slowly updated, will resume routine maintenance/development in late March.
+To install the most up-to-date development version, run:
+```
+pip install git+https://github.com/jzrolling/momia2.git
+
+```

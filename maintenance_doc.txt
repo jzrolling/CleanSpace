@@ -1,0 +1,4 @@
+cd momia2
+python3 -m build
+cd ../
+pip install -e momia2/
