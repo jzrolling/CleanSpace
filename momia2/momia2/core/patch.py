@@ -27,6 +27,8 @@ class Patch:
         self.id = image_id
         self.data = {}
         self._data = {}
+        self.particles = {}
+        self.cache = PatchCache()
         self.seed = None
         self.labeled_seeds = None
         self.labeled_mask = None
@@ -38,7 +40,6 @@ class Patch:
         self.channels = []
         self.ref_channel = ''
         self.bbox = ()
-        self.cache = PatchCache()
         self.store_backup = store_backup
         self.regionprops = pd.DataFrame()
         self.boundaries = None
