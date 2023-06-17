@@ -71,8 +71,6 @@ class Patch:
         else:
             print('No raw data found. Set "store_backup" to True to backup raw data.')
 
-
-
     def load_seed(self, seed):
         if seed.shape != self.shape:
             raise ValueError("The shapes of seed image and target images don't match!")
@@ -343,6 +341,7 @@ class Patch:
                      level=0.1,
                      dilation=False,
                      erosion=False,
+                     gaussian_smooth_threshold=None,
                      calculate_curvature = True,
                      angularity_window = 15,
                      dark_background=False,
@@ -365,6 +364,9 @@ class Patch:
                     ['$opt-x1', '$opt-y1', '$opt-x2', '$opt-y2','$touching_edge']].values.astype(int)
                 if not touching_edge:
                     mask = (self.labeled_mask[x1:x2, y1:y2] == label).astype(np.int32)
+                    if isinstance(gaussian_smooth_threshold,float):
+                        if gaussian_smooth_threshold>0 and gaussian_smooth_threshold<1:
+                            mask = (gaussian_smooth(mask, sigma=1, preserve_range=False) > gaussian_smooth_threshold)*1
                     data = self.get_ref_image()[x1:x2, y1:y2]
                     outline = find_contour_marching_squares(mask,data,
                                                             level=level,

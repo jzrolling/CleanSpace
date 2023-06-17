@@ -33,11 +33,11 @@ def midline_approximation(skeleton,
     n = 0
     converged = False
     while n < max_iteration:
-        updated_midline = mo.utils.skeleton.skeleton_contour_intersect_points(midline, smoothed_contour)
+        updated_midline = skeleton_contour_intersect_points(midline, smoothed_contour)
         dxy = updated_midline - midline
-        midline = mo.utils.linalg.spline_approximation(updated_midline,
-                                                       n=len(updated_midline),
-                                                       smooth_factor=1, closed=False)
+        midline = spline_approximation(updated_midline,
+                                       n=len(updated_midline),
+                                       smooth_factor=1, closed=False)
         if dxy.max() <= tolerance:
             converged = True
             break
