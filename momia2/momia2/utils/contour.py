@@ -35,7 +35,15 @@ def find_contour_marching_squares(binary_mask,
     """
     from skimage import morphology, filters, measure
 
+    # smoothen mask
     binary_mask = smooth_binary_mask(binary_mask.astype(int),sigma=1)
+
+    # use local threshold to suppress shadow signals (usually from cell debris)
+    dil_mask = morphology.binary_dilation(binary_mask,morphology.disk(2))
+    th = filters.threshold_otsu(image[dil_mask == 1].flatten())
+    binary_mask = dil_mask * (image < th)
+
+    # erode or dilate
     if erosion:
         binary_mask = morphology.binary_erosion(binary_mask).astype(int)
     if dilation:
@@ -54,7 +62,8 @@ def find_contour_marching_squares(binary_mask,
         intensity_mask = binary_mask
     contour = measure.find_contours(intensity_mask, level=level)[0]
     if approximate:
-        contour = simplify_polygon(contour,tolerance=tolerance,
+        contour = simplify_polygon(contour,
+                                   tolerance=tolerance,
                                    interp_distance=interp_distance,
                                    min_segment_count=min_segment_count)
         contour = spline_approximation(contour,n=len(contour),smooth_factor=1,closed=True)

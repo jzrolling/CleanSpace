@@ -246,7 +246,8 @@ def coord2mesh(x, y, selem,
 def simplify_polygon(polygon,
                      tolerance=0.95,
                       interp_distance=1,
-                      min_segment_count=2):
+                      min_segment_count=2,
+                      n=0):
     """
     Simplifies a given polygon using the Ramer-Douglas-Peucker algorithm and linear interpolation.
 

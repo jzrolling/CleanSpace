@@ -8,7 +8,7 @@ import pandas as pd
 import PIL,io
 from ..classify import run_particle_labeler
 from matplotlib import pyplot as plt
-from skimage import morphology
+from skimage import morphology, draw
 from typing import Optional, Dict, Union, Any
 
 
@@ -427,34 +427,32 @@ class Patch:
                      level=0.1,
                      dilation=False,
                      erosion=False,
-                     gaussian_smooth_threshold=None,
-                     calculate_curvature = True,
-                     angularity_window = 15,
+                     calculate_curvature=True,
+                     angularity_window=15,
                      dark_background=False,
                      sigma=1,
                      approximate=False,
                      tolerance=0.3,
                      interp_distance=1,
-                     min_segment_count=3):
+                     min_segment_count=3,
+                     update_mask=True):
 
-        bending_stat = []
         if len(self.regionprops) > 0:
+            bending_stat = []
+            masks = []
             outline_list = []
             if '$opt-x1' not in self.regionprops:
                 self.regionprops[
                     ['$opt-x1', '$opt-y1', '$opt-x2', '$opt-y2', '$touching_edge']] = corrections.optimize_bbox_batch(
-                                                                                            self.shape,
-                                                                                            self.regionprops)
+                    self.shape,
+                    self.regionprops)
             for label in self.regionprops.index:
-                x1, y1, x2, y2,touching_edge = self.regionprops.loc[label][
-                    ['$opt-x1', '$opt-y1', '$opt-x2', '$opt-y2','$touching_edge']].values.astype(int)
+                x1, y1, x2, y2, touching_edge = self.regionprops.loc[label][
+                    ['$opt-x1', '$opt-y1', '$opt-x2', '$opt-y2', '$touching_edge']].values.astype(int)
+                mask = (self.labeled_mask[x1:x2, y1:y2] == label).astype(int)
                 if not touching_edge:
-                    mask = (self.labeled_mask[x1:x2, y1:y2] == label).astype(np.int32)
-                    if isinstance(gaussian_smooth_threshold,float):
-                        if gaussian_smooth_threshold>0 and gaussian_smooth_threshold<1:
-                            mask = (gaussian_smooth(mask, sigma=1, preserve_range=False) > gaussian_smooth_threshold)*1
                     data = self.get_ref_image()[x1:x2, y1:y2]
-                    outline = find_contour_marching_squares(mask,data,
+                    outline = find_contour_marching_squares(mask, data,
                                                             level=level,
                                                             dilation=dilation,
                                                             erosion=erosion,
@@ -465,15 +463,19 @@ class Patch:
                                                             interp_distance=interp_distance,
                                                             min_segment_count=min_segment_count)
                     if calculate_curvature:
-                        bending = -bend_angle_closed(outline,window=angularity_window)
-                        bending_stat.append([bending.min(),bending.max(),bending.mean(),
-                                             np.percentile(bending,25),np.percentile(bending,75)])
+                        bending = -bend_angle_closed(outline, window=angularity_window)
+                        bending_stat.append([bending.min(), bending.max(), bending.mean(),
+                                             np.percentile(bending, 25), np.percentile(bending, 75)])
                     outline_list.append(outline)
+                    if update_mask:
+                        mask = draw.polygon2mask(mask.shape, outline).astype(int)
                 else:
                     outline_list.append(np.array([]))
                     if calculate_curvature:
-                        bending_stat.append([np.nan]*5)
+                        bending_stat.append([np.nan] * 5)
+                masks.append(mask)
             self.regionprops['$outline'] = outline_list
+            self.regionprops['$mask'] = masks
             if calculate_curvature:
                 self.regionprops[['min_negative_curvature',
                                   'max_positive_curvature',

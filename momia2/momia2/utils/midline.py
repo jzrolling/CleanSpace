@@ -10,10 +10,10 @@ def midline_approximation(skeleton,
                           move_pole1=False,
                           move_pole2=False,
                           anchor_length=3,
-                          tolerance=0.1,
-                          max_iteration=10):
+                          tolerance=0.1, max_iteration=10):
     """
     Approximation of a smooth midline with skeleton and a smoothed contour.
+
     :param skeleton: A numpy array of shape (n, 2) representing the skeleton of a 2D object.
     :param smoothed_contour: A numpy array of shape (m, 2) representing the smoothed contour of a 2D object.
     :param tolerance: A float representing the maximum distance between the midline and the skeleton at which convergence is achieved.
@@ -37,42 +37,44 @@ def midline_approximation(skeleton,
         updated_midline = skeleton_contour_intersect_points(midline, smoothed_contour)
         dxy = updated_midline - midline
         midline = spline_approximation(updated_midline,
-                                       n=len(updated_midline),
-                                       smooth_factor=1, closed=False)
-        if dxy.max() <= tolerance:
+                                               n=len(updated_midline),
+                                               smooth_factor=1,
+                                       closed=False)
+        if np.abs(dxy).mean() <= tolerance:
             converged = True
             break
         n += 1
-
     stiched_midline = []
     if not move_pole1:
         stiched_midline.append(pole1_anchor)
-    stiched_midline.append(midline)
+    stiched_midline.append(updated_midline)
     if not move_pole2:
         stiched_midline.append(pole2_anchor)
     midline = np.vstack(stiched_midline)
-    return midline.astype(np.float), converged
+    return midline.astype(float), converged
 
 
 def skeleton_analysis(mask,
                       pruning=False,
                       min_branch_length=5,
-                      max_iterations=30):
+                      max_iterations=30,
+                      method='zhang'):
     """
     find all skeleton branch(es) from a binary mask and sort the pixel coordinates accordingly
     :param mask:
     :param pruning:
     :param min_branch_length:
     :param max_iterations:
+    :param method:
     :return:
     """
     warnings.filterwarnings("ignore")
-    skeleton = morphology.skeletonize(mask)*2
+    skeleton = morphology.skeletonize(mask,method=method)*2
     endpoints, branch_points, skeleton = locate_nodes(skeleton)
     anchor_points = endpoints+branch_points
     skeleton_branches = []
     n = 0
-    if (len(endpoints) >= 2) and (len(branch_points) <= 10):
+    if (len(endpoints) >= 2): #and (len(branch_points) <= 10):
         while True:
             if len(anchor_points) == 0:
                 break
@@ -117,8 +119,10 @@ def skeleton_analysis(mask,
         if n < max_iterations:
             return skeleton_branches, skeleton
         else:
+
             return [], skeleton
     else:
+        print('hi')
         return [], skeleton
 
 def locate_nodes(skeleton):
@@ -163,6 +167,35 @@ def locate_nodes(skeleton):
     else:
         return endpoints, branch_points, skeleton
 
+
+def merge_branch_points(skeleton_coords,
+                        max_dist=3):
+    centroid_groups_id = []
+    centroid_groups_x = []
+    centroid_groups_y = []
+    centroid_groups = []
+
+    for p,x,y in skeleton_coords:
+        if p[0]==0:
+            centroid_groups_x.append(x[0])
+            centroid_groups_y.append(y[0])
+        if p[1]==0:
+            centroid_groups_x.append(x[-1])
+            centroid_groups_y.append(y[-1])
+    centroid_groups_x=np.array(centroid_groups_x)
+    centroid_groups_y=np.array(centroid_groups_y)
+    new_coords = []
+    for p,x,y in skeleton_coords:
+        new_x = x.copy()
+        new_y = y.copy()
+        if p[0]==0:
+            new_x[0]=centroid_groups_x[np.abs(centroid_groups_x-x[0])<max_dist].mean()
+            new_y[0]=centroid_groups_y[np.abs(centroid_groups_y-y[0])<max_dist].mean()
+        if p[1]==0:
+            new_x[-1]=centroid_groups_x[np.abs(centroid_groups_x-x[-1])<max_dist].mean()
+            new_y[-1]=centroid_groups_y[np.abs(centroid_groups_y-y[-1])<max_dist].mean()
+        new_coords.append([p,new_x,new_y])
+    return new_coords
 
 @jit(nopython=True, cache=True)
 def neighbor_search(input_map, endpoint, max_iterations=500):
@@ -393,7 +426,7 @@ def extend_skeleton(smoothed_skeleton,
                                         segment2])
     return spline_approximation(extended_skeleton,
                                 n=int(interpolation_factor * len(smoothed_skeleton)),
-                                smooth_factor=1, closed=False)
+                                smooth_factor=0, closed=False)
 
 
 def skeleton_contour_intersect_distance(skeleton, contour):
