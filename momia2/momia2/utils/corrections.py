@@ -2,8 +2,6 @@ __author__ = 'jz-rolling'
 __version__ = '0.2.1' # revised docstrings using cursor + GPT4
 
 
-import scipy.ndimage as ndi
-from numba import jit
 from .generic import *
 from skimage import filters, transform
 from scipy import fftpack

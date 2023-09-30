@@ -5,11 +5,12 @@ from ..utils import *
 from ..segment import *
 from ..plot import *
 import pandas as pd
-from skimage.segmentation import watershed
 import PIL,io
 from ..classify import run_particle_labeler
 from matplotlib import pyplot as plt
 from skimage import morphology
+from typing import Optional, Dict, Union, Any
+
 
 __all__ = ['Patch']
 
@@ -17,13 +18,22 @@ __all__ = ['Patch']
 class Patch:
 
     def __init__(self,
-                 image_dict=None,
-                 configfile=None,
-                 image_id=0,
-                 ref_channel=-1,
-                 store_backup=False):
+                 image_dict: Optional[Dict[str, Any]] = None,
+                 configfile: Optional[str] = None,
+                 image_id: int = 0,
+                 ref_channel: Union[int, str] = -1,
+                 store_backup: bool = False) -> None:
+        """
+        Initialize a Patch object.
         # make sure that the number of images match the number of channels provided.
-        # modularize Image class
+
+        :param image_dict: Dictionary containing image data.
+        :param configfile: Path to the configuration file.
+        :param image_id: Text ID of the image.
+        :param ref_channel: Specify the name/index of the reference channel for the image.
+        :param store_backup: Flag to store unprocessed data.
+        """
+
         self.id = image_id
         self.data = {}
         self._data = {}
@@ -49,9 +59,17 @@ class Patch:
             self.load_data(image_dict,
                            ref_channel=ref_channel)
 
-    def load_data(self,image_dict,
-                  image_id=0,
-                  ref_channel=-1):
+    def load_data(self,
+                  image_dict: Dict[str, np.array],
+                  image_id: int=0,
+                  ref_channel: Union[int,str]=-1):
+        """
+        Load image data into the Patch object.
+
+        :param image_dict: Dictionary containing compiled image data: {'Channel_name':2D numpy array}.
+        :param image_id: ID of the image.
+        :param ref_channel: Reference channel for the image.
+        """
         self.id = image_id
         self.data = image_dict
         self.channels = list(image_dict.keys())
@@ -65,28 +83,61 @@ class Patch:
         if self.store_backup:
             self._data = self.data.copy()
 
-    def revert(self):
+    def revert(self) -> None:
+        """
+        Revert the image data to its original/unprocessed state.
+        """
         if self.store_backup:
             self.data = self._data.copy()
         else:
             print('No raw data found. Set "store_backup" to True to backup raw data.')
 
-    def load_seed(self, seed):
+    def load_seed(self,
+                  seed: np.array) -> None:
+        """
+        Load seed image into the Patch object (to guide watershed segmentation).
+
+        :param seed: Seed image.
+        """
         if seed.shape != self.shape:
             raise ValueError("The shapes of seed image and target images don't match!")
         self.seed = seed
 
-    def load_mask(self, mask):
+    def load_mask(self,
+                  mask: np.array) -> None:
+        """
+        Load a precomputed mask into the Patch object.
+
+        :param mask: Precomputed mask image.
+        """
         if mask.shape != self.shape:
             raise ValueError("The shapes of mask image and target images don't match!")
         self.mask = mask
 
-    def load_labeled_mask(self, labeled_mask):
+    def load_labeled_mask(self,
+                          labeled_mask: np.array) -> None:
+        """
+        Load a precomputed labeled mask into the Patch object.
+
+        :param labeled_mask: Labeled mask image.
+        """
         if labeled_mask.shape != self.shape:
             raise ValueError("The shapes of labeled mask and target images don't match!")
         self.labeled_mask = labeled_mask
 
-    def preprocess_images(self, func=None, channels = 'all', **kwargs):
+    def batch_process(self) -> None:
+        return None
+
+    def preprocess_images(self,
+                          func=None,
+                          channels = 'all', **kwargs) -> None:
+        """
+        Preprocess images based on a provided function and channels.
+
+        :param func: Function to preprocess images.
+        :param channels: Channels to apply the function on.
+        :param kwargs: Additional keyword arguments for the function.
+        """
         target_channels = []
         if isinstance(channels,str):
             if channels in ['ALL','All','all','-']:
@@ -111,7 +162,11 @@ class Patch:
         except:
             print('Failed in applying function {} on these channels: {}'.format(func._name_, target_channels))
 
-    def crop_edge(self,edge_fraction=None):
+    def crop_edge(self,edge_fraction=None) -> None:
+        """
+        crop edge pixels to suppress edge aberrations.
+        :param edge_fraction: proportion of edge pixels being cropped from each side, should be between 0 and 0.4.
+        """
         if isinstance(edge_fraction,float):
             self.config['IMAGE']['EDGE'] = edge_fraction
         else:
@@ -133,7 +188,7 @@ class Patch:
     def correct_xy_drift(self,
                          reference_channel=None,
                          invert_ref=None,
-                         max_drift=None):
+                         max_drift=None) -> None:
         """
         Planar drift correction.
         :param reference_channel: specify reference channel, uses Patch.ref_channel by default.
@@ -182,18 +237,36 @@ class Patch:
                       method=1,
                       min_particle_size=50,
                       min_hole_size=50,
-                      **kwargs):
+                      **kwargs) -> None:
+        """
+        Generate a binary mask for the image.
+
+        :param method: Numeric index or name of a pre-defined binarization method
+        :param min_particle_size: Minimum size for particles in the mask.
+        :param min_hole_size: Minimum size for holes in the mask.
+        :param kwargs: Additional keyword arguments for the method.
+        """
+
         mask = BinarizeLegend(method, **kwargs).predict(self.get_ref_image())
         mask = morphology.remove_small_holes(mask,min_hole_size)
         mask = morphology.remove_small_objects(mask,min_particle_size)
         self.mask = mask
 
-    def label_mask(self):
+    def label_mask(self) -> None:
+        """
+        Label the binary mask.
+        """
         self.labeled_mask = measure.label(self.mask)
 
     def locate_particles(self,
                          use_intensity=True,
-                         cache_mask = False):
+                         cache_mask = False) -> None:
+        """
+        Locate particles in the image.
+
+        :param use_intensity: Use intensity data for locating particles.
+        :param cache_mask: Cache the binary mask for future use.
+        """
         if self.labeled_mask.max() > 0:
             if use_intensity:
                 self.regionprops = get_regionprop(self.labeled_mask, intensity_image=self.get_ref_image())
@@ -202,7 +275,7 @@ class Patch:
             self.regionprops.set_index('$label', inplace=True)
             self.regionprops['$image_id'] = [self.id] * len(self.regionprops)
             self.regionprops[
-                ['$opt-x1', '$opt-y1', '$opt-x2', '$opt-y2', '$touching_edge']] = corrections.optimize_bbox_batch(
+                ['$opt-x1', '$opt-y1', '$opt-x2', '$opt-y2', '$touching_edge']] = optimize_bbox_batch(
                                                                                     self.shape, self.regionprops)
             self.regionprops['$include'] = 1
             self.regionprops['$midlines'] = [[]] * len(self.regionprops)
@@ -252,14 +325,27 @@ class Patch:
             return (self.labeled_mask==particle_id)[x1:x2,y1:y2]
 
     def filter_particles(self,
-                         filter_dict={'area': (50, 5000),
-                                      'aspect_ratio': (0.05, 1),
-                                      'solidity': (0.4, 1),
-                                      'eccentricity': (0.4, 1),
-                                      '$outline': 1,
-                                      'max_positive_curvature': (0, 60),
-                                      'min_negative_curvature': (0, 15)}):
-        # remove particles sitting on the edges
+                         filter_dict: Dict[str, Any]):
+        """
+        Filters particles in the region properties based on given criteria.
+
+        This function performs two tasks:
+        1. It removes particles that touch the edges of the image.
+        2. It filters particles based on the criteria specified in the filter_dict.
+           For keys starting with '$', particles are filtered based on exact value matching.
+           For other keys, particles are filtered based on a value range.
+
+        The results are stored in the '$include' column of the regionprops DataFrame,
+        where particles that pass the filter are marked with a 1 and others with a 0.
+
+        :param filter_dict: Dictionary specifying filtering criteria.
+                            The keys should be feature names (possibly starting with '$')
+                            and the values should be either:
+                            a) An exact value for features with '$' key prefix.
+                            b) A tuple (min_value, max_value) specifying a range for other features.
+
+        :return: None. This method modifies the internal regionprops DataFrame in-place.
+        """
         _accept = [self.regionprops['$touching_edge'].values == 0]
         # filter by range
         for k, r in filter_dict.items():

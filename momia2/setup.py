@@ -5,6 +5,7 @@ from setuptools import setup, find_packages
 name = 'momia2'
 version = '0.1'
 author = 'jz-rolling'
+author_emails = ['juzhu@hsph.harvard.edu', 'zhujh@im.ac.cn']
 
 # Define package description
 description = 'Mycobacteria-optimized microscopy image analysis version 2 (sort of)'
@@ -24,13 +25,17 @@ requirements = [
     'numba==0.56.4',
     'tifffile==2023.3.21',
     'nd2reader==3.3.0',
+    'opencv-python==4.8.1.78'
 ]
 
 # Define package classifiers
 classifiers = [
     'License :: OSI Approved :: MIT License',
-    'Programming Language :: Python :: 3',
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
     'Operating System :: OS Independent',
+    "Topic :: Scientific/Engineering :: Microbiology"
 ]
 
 # Define package setup
@@ -38,7 +43,7 @@ setup(
     name=name,
     version=version,
     author=author,
-    author_email='juzhu@hsph.harvard.edu',
+    author_email=', '.join(author_emails),
     description=description,
     long_description=long_description,
     install_requires=requirements,

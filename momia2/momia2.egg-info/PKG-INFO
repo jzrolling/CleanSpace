@@ -3,12 +3,24 @@ Name: momia2
 Version: 0.1
 Summary: Mycobacteria-optimized microscopy image analysis version 2 (sort of)
 Author: jz-rolling
-Author-email: juzhu@hsph.harvard.edu
+Author-email: juzhu@hsph.harvard.edu, zhujh@im.ac.cn
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering :: Microbiology
 Requires-Python: >=3.8
 License-File: LICENSE
+Requires-Dist: numpy>=1.22
+Requires-Dist: pandas>=1.5
+Requires-Dist: trackpy>=0.6
+Requires-Dist: scikit-image>=0.20.0
+Requires-Dist: matplotlib>=3.7
+Requires-Dist: networkx==3.0
+Requires-Dist: numba==0.56.4
+Requires-Dist: tifffile==2023.3.21
+Requires-Dist: nd2reader==3.3.0
 
 # momia2 development version
 ### This version is currently being slowly updated, will resume routine maintenance/development in late March.
