@@ -61,7 +61,7 @@ def drift_correction(target_img, drift, max_drift=1000):
         elif img_dtype == np.uint16:
             offset_image[offset_image >= 65530] = 65530
             return offset_image.astype(np.uint16)
-        elif img_dtype == np.int:
+        elif img_dtype == int:
             offset_image[offset_image >= 2147483647] = 2147483647
         elif img_dtype == np.float:
             return offset_image.astype(np.float)
@@ -377,7 +377,7 @@ def optimize_bbox_batch(img_shape,
     new_y2[new_y2 >= columns - 1] = columns - 1
 
     touching_edge = (((x1 <= 0.5 * edge_width) + (y1 <= 0.5 * edge_width) + \
-                      (x2 >= rows - 1 - 0.5 * edge_width) + (y2 >= columns - 1 - 0.5 * edge_width)) > 0).astype(np.int)
+                      (x2 >= rows - 1 - 0.5 * edge_width) + (y2 >= columns - 1 - 0.5 * edge_width)) > 0).astype(int)
     return np.array([new_x1, new_y1, new_x2, new_y2, touching_edge]).T
 
 

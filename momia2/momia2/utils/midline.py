@@ -10,7 +10,8 @@ def midline_approximation(skeleton,
                           move_pole1=False,
                           move_pole2=False,
                           anchor_length=3,
-                          tolerance=0.1, max_iteration=10):
+                          tolerance=0.1,
+                          max_iteration=10):
     """
     Approximation of a smooth midline with skeleton and a smoothed contour.
     :param skeleton: A numpy array of shape (n, 2) representing the skeleton of a 2D object.
