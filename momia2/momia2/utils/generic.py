@@ -1,6 +1,3 @@
-__author__ = 'jz-rolling'
-__version__ = '0.2.1' # revised docstrings using cursor + GPT4
-
 import numpy as np
 from skimage import morphology, filters, measure
 from .linalg import *

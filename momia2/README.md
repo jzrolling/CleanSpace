@@ -1,12 +1,25 @@
-## momia2 (Mycobacteria-optimized microscopy image analysis v.2)
+## MOMIA2 (Mycobacteria-optimized microscopy image analysis v.2) ##
 
-### Features:
+### Installation guide: ###
 
-To install the most up-to-date development version, run:
-install pyqt5 from conda (pip doesn't always work)
+Install miniconda and create a new conda environment
+```
+conda create --name myenv python=3.11
+```
+
+Need to first install pyqt5 from conda (pip doesn't always work)
+```
 conda install -c anaconda pyqt
 ```
-pip install git+https://github.com/jzrolling/momia2.git
+
+To install **momia2** from pip:
+```
+pip install momia2
+```
+
+To install the most up-to-date version in development, run:
+```
+pip install git+https://github.com/jzrolling/CleanSpace.git
 ```
 
 

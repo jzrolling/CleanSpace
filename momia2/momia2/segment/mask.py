@@ -189,7 +189,7 @@ class Patchifier:
     def pachify(self, img, random_rotate=False):
         """
         convert img to patches
-        :param img: src image
+        :param img: momia2 image
         :param random_rotate: if randomly rotate clips, this shouldn't be used for prediction but can be helpful for training
         :return: clipped patches
         """

@@ -1,6 +1,3 @@
-__author__ = 'jz-rolling'
-__version__ = '0.2.1' # revised docstrings using cursor + GPT4
-
 from skimage import feature, measure, draw
 from matplotlib import pyplot as plt, cm
 from matplotlib.gridspec import GridSpec as gs
