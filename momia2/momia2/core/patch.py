@@ -481,6 +481,51 @@ class Patch:
                                   'max_positive_curvature',
                                   'mean_curvature', 'Q1_curvature', 'Q3_curvature']] = bending_stat
 
+    def extract_midlines(self,
+                         min_branch_length=0.2,
+                         pole_length=0.25,
+                         method='zhang',
+                         filtered_only=True):
+        #
+        midline_list = []
+        cell_ids = self.regionprops.index
+        for idx in cell_ids:
+            cell = self.get_particle_data(idx)
+            cent_x,cent_y = cell['$centroid-0']-cell['$opt-x1'],cell['$centroid-1']-cell['$opt-y1']
+            mask = cell['$mask']
+            mask_coords = np.array(np.where(mask>0)).T
+            outline = cell['$outline']
+            orientation = cell['orientation']
+            solidity = cell['solidity']
+
+            if not cell['$include'] and filtered_only:
+                midlines = []
+            elif len(outline) == 0:
+                midlines = []
+            # if cell is convex, use fast mode
+            else:
+                try:
+                    if solidity > 0.8 and np.array([cent_x,cent_y]).astype(int) in mask_coords:
+                        if len(outline) > 100:
+                            upsampling_factor=1
+                        else:
+                            upsampling_factor=2
+                        midlines = fast_midline(mask,outline,
+                                                orientation=orientation,
+                                                centroid=np.array([cent_x,cent_y]),
+                                                pixel_microns=self.pixel_microns,
+                                                pole_length=pole_length,
+                                                upsampling_factor=upsampling_factor)
+                    else:
+                        midlines = extract_midline(mask, outline,
+                                                    pixel_microns=self.pixel_microns,
+                                                    min_branch_length=min_branch_length,
+                                                    method=method)
+                except:
+                    midlines = []
+            midline_list.append(midlines)
+        self.regionprops['$midlines'] = midline_list
+
     def plot(self,
              cell_ids=[],
              figsize=(5, 5),

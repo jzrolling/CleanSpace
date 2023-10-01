@@ -246,8 +246,7 @@ def coord2mesh(x, y, selem,
 def simplify_polygon(polygon,
                      tolerance=0.95,
                       interp_distance=1,
-                      min_segment_count=2,
-                      n=0):
+                      min_segment_count=2):
     """
     Simplifies a given polygon using the Ramer-Douglas-Peucker algorithm and linear interpolation.
 
@@ -258,6 +257,10 @@ def simplify_polygon(polygon,
     :return: A 2D numpy array of the simplified and interpolated polygon.
     """
     from skimage.measure import approximate_polygon
+    if (polygon[0]-polygon[-1]).sum() == 0:
+        closed = True
+    else:
+        closed = False
     approximation = approximate_polygon(polygon,tolerance=tolerance)
     linear_interpolated_segments=[]
     for i in range(len(approximation)-1):
@@ -267,7 +270,12 @@ def simplify_polygon(polygon,
         steps = max(int(round(dist/interp_distance)),min_segment_count)
         linear_interpolated_segments.append(np.array([np.linspace(p1[0],p2[0],steps),np.linspace(p1[1],p2[1],steps)]).T[:-1])
     linear_interpolated_segments.append(np.array([approximation[-1]]))
-    return np.concatenate(linear_interpolated_segments)
+    approximated = np.concatenate(linear_interpolated_segments)
+    if int(measure_length(approximated)/interp_distance) >= 5:
+        approximated = spline_approximation(approximated,
+                                            n=int(measure_length(approximated)/interp_distance),
+                                            closed=closed,smooth_factor=0)
+    return approximated
 
 
 def dilate_by_coords(coords, image_shape,

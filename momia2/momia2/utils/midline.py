@@ -122,7 +122,6 @@ def skeleton_analysis(mask,
 
             return [], skeleton
     else:
-        print('hi')
         return [], skeleton
 
 def locate_nodes(skeleton):
@@ -401,8 +400,8 @@ def extend_skeleton(smoothed_skeleton,
                     smoothed_contour,
                     find_pole1=True,
                     find_pole2=True,
-                    subdivide_pole_segment=5,
-                    interpolation_factor=1):
+                    subdivide_pole_segment=3,
+                    upsampling_factor=1):
     # initiate approximated tip points
     new_pole1, new_pole2, smoothed_skeleton = find_poles(smoothed_skeleton,
                                                          smoothed_contour,
@@ -424,9 +423,131 @@ def extend_skeleton(smoothed_skeleton,
     extended_skeleton = np.concatenate([segment1,
                                         smoothed_skeleton,
                                         segment2])
+    l = int(upsampling_factor*round(measure_length(smoothed_skeleton)))
     return spline_approximation(extended_skeleton,
-                                n=int(interpolation_factor * len(smoothed_skeleton)),
-                                smooth_factor=0, closed=False)
+                                n=l,
+                                smooth_factor=1, closed=False)
+
+
+def fast_midline(mask, outline,
+                 centroid=None,
+                 orientation=None,
+                 pixel_microns=0.065,
+                 pole_length=0.3,
+                 upsampling_factor=2,
+                 tolerance = 0.1,
+                 max_iteration = 10):
+    """
+
+    """
+
+    from skimage.measure import regionprops
+    # get centroid coordinates
+    if centroid is None:
+        mask_x, mask_y = np.where(mask == 1)
+        x0, y0 = np.round(np.array([mask_x.mean(), mask_y.mean()])).astype(int)
+    else:
+        x0, y0 = np.round(centroid).astype(int)
+    # get particle orientation
+    if orientation is None:
+        orientation = regionprops(mask * 1)[0].orientation
+
+    # consider both poles as floppy ends
+    pole1, pole2 = 1, 1
+
+    # get the line segment that traverses the centroid and aligns with the orientation of the particle
+    dx, dy = np.cos(orientation), np.sin(orientation)
+    intersect = line_contour_intersection([x0, y0],
+                                          [x0 + dx, y0 + dy],
+                                              outline)
+    # estimate interpolation size
+    l = int(round(measure_length(intersect) * upsampling_factor))
+    pole_length_pix = int(np.round(upsampling_factor * pole_length / pixel_microns)) + 1
+
+    # linear interpolation to generate the initial midline
+    init_midline = np.array([np.linspace(intersect[0, 0], intersect[1, 0], l),
+                             np.linspace(intersect[0, 1], intersect[1, 1], l)]).T
+
+    # use only the middle part of the interpolated line to fit the cell midline
+    mid_segment = init_midline[pole_length_pix * pole1:-pole_length_pix * pole2]
+    smooth_midline, _converged = midline_approximation(mid_segment,
+                                                        outline,
+                                                        move_pole1=pole1,
+                                                        move_pole2=pole2,
+                                                        tolerance=tolerance,
+                                                        max_iteration=max_iteration,
+                                                        anchor_length=3)
+
+    # if converted, extend the centerline to
+    if _converged:
+        midline = extend_skeleton(smooth_midline,
+                                   outline,
+                                   find_pole1=pole1,
+                                   find_pole2=pole2)
+    else:
+        midline = init_midline
+    midline = spline_approximation(midline, n=max(3, int(round(measure_length(midline)))),
+                                   smooth_factor=1, closed=False)
+    return [midline]
+
+
+def extract_midline(mask,
+                    outline,
+                    pixel_microns=0.065,
+                    min_branch_length=0.2,
+                    method='zhang'):
+    """
+    """
+    from skimage import morphology
+    min_branch_length_pix = max(3,int(round(min_branch_length/pixel_microns)))
+    skeleton_coords, skeleton = skeleton_analysis(morphology.binary_opening(mask),
+                                                   pruning=True,
+                                                   method=method,
+                                                   min_branch_length=min_branch_length_pix)
+    skeleton_coords = merge_branch_points(skeleton_coords,max_dist=3)
+    midline_coords = []
+    for i in range(len(skeleton_coords)):
+        pole1, pole2 = skeleton_coords[i][0]
+        xcoords = skeleton_coords[i][1]
+        ycoords = skeleton_coords[i][2]
+        skel_coords = np.array([xcoords, ycoords]).T
+        if len(skel_coords)<15:
+            interp_distance = 0.5
+        elif len(skel_coords)<60:
+            interp_distance = 1
+        elif len(skel_coords)<90:
+            interp_distance = 2
+        else:
+            interp_distance = 3
+        simp = simplify_polygon(skel_coords,
+                                         tolerance=0.9,
+                                         interp_distance=interp_distance)
+        extended = extend_skeleton(simp,
+                                       outline,
+                                       find_pole1=pole1,
+                                       find_pole2=pole2,
+                                       subdivide_pole_segment=5,
+                                       upsampling_factor=1/interp_distance)
+        smooth_skel, _converged = midline_approximation(extended,
+                                                        outline,
+                                                        max_iteration=5,
+                                                        tolerance=0.15,
+                                                        move_pole1 = False,
+                                                        move_pole2 = False,
+                                                        anchor_length=5)
+        if _converged:
+            smooth_skel=simplify_polygon(smooth_skel,tolerance=0.9,
+                                          interp_distance=interp_distance)
+        else:
+            smooth_skel=simplify_polygon(extended,tolerance=0.9,
+                                          interp_distance=interp_distance)
+        smooth_skel=spline_approximation(smooth_skel,
+                                          n=int(round(measure_length(skel_coords))),
+                                          smooth_factor=1,closed=False)
+        midline_coords.append([[pole1,pole2],smooth_skel[:,0],smooth_skel[:,1]])
+    midline_coords = merge_branch_points(midline_coords,max_dist=3)
+    return [np.array([x[1],x[2]]).T for x in midline_coords]
+
 
 
 def skeleton_contour_intersect_distance(skeleton, contour):

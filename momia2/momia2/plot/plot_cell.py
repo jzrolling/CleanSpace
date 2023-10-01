@@ -58,7 +58,9 @@ def plot_cells(patch,
                     plt.plot(raw_outline[:, 1], raw_outline[:, 0], color=outline_color, lw=outline_lw,
                              ls=outline_ls)
                 if len(midlines) > 0:
-                    plt.plot(midlines[:, 1], midlines[:, 0], color=midline_color, lw=midline_lw, ls=midline_ls)
+                    for midline in midlines:
+                        plt.plot(midline[:, 1], midline[:, 0],
+                                 color=midline_color, lw=midline_lw, ls=midline_ls)
     else:
         fig = plt.figure(figsize=figsize)
         plt.imshow(img, cmap='gist_gray')
@@ -74,5 +76,6 @@ def plot_cells(patch,
                     plt.plot(raw_outline[:, 1] + y1, raw_outline[:, 0] + x1, color=outline_color,
                              lw=outline_lw, ls=outline_ls)
                 if len(midlines) > 0:
-                    plt.plot(midlines[:, 1] + y1, midlines[:, 0] + x1, color=midline_color, lw=midline_lw,
-                             ls=midline_ls)
+                    for midline in midlines:
+                        plt.plot(midline[:, 1] + y1, midline[:, 0] + x1, color=midline_color, lw=midline_lw,
+                                 ls=midline_ls)
