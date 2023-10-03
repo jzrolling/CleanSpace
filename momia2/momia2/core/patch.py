@@ -1,6 +1,9 @@
+import numpy as np
+
 from ..utils import *
 from ..segment import *
 from ..plot import *
+from ..momia_IO import pickle_save, pickle_load
 import pandas as pd
 import PIL,io
 from ..classify import run_particle_labeler
@@ -17,7 +20,7 @@ class Patch:
     def __init__(self,
                  image_dict: Optional[Dict[str, Any]] = None,
                  configfile: Optional[str] = None,
-                 image_id: int = 0,
+                 image_id: Optional[int] = 0,
                  ref_channel: Union[int, str] = -1,
                  store_backup: bool = False) -> None:
         """
@@ -54,11 +57,12 @@ class Patch:
         self.wd = './'
         if isinstance(image_dict,dict):
             self.load_data(image_dict,
-                           ref_channel=ref_channel)
+                           ref_channel=ref_channel,
+                           image_id=image_id)
 
     def load_data(self,
                   image_dict: Dict[str, np.array],
-                  image_id: int=0,
+                  image_id: Optional[int] = 0,
                   ref_channel: Union[int,str]=-1):
         """
         Load image data into the Patch object.
@@ -257,7 +261,8 @@ class Patch:
 
     def locate_particles(self,
                          use_intensity=True,
-                         cache_mask = False) -> None:
+                         cache_mask = False,
+                         cache_data = False) -> None:
         """
         Locate particles in the image.
 
@@ -271,6 +276,7 @@ class Patch:
                 self.regionprops = get_regionprop(self.labeled_mask, intensity_image=None)
             self.regionprops.set_index('$label', inplace=True)
             self.regionprops['$image_id'] = [self.id] * len(self.regionprops)
+            self.regionprops['$Cell_id'] = ['{}_{}'.format(self.id, nid) for nid in self.regionprops.index]
             self.regionprops[
                 ['$opt-x1', '$opt-y1', '$opt-x2', '$opt-y2', '$touching_edge']] = optimize_bbox_batch(
                                                                                     self.shape, self.regionprops)
@@ -278,12 +284,21 @@ class Patch:
             self.regionprops['$midlines'] = [[]] * len(self.regionprops)
             self.regionprops['$outline'] = [[]] * len(self.regionprops)
             self.regionprops['$refined_outline'] = [[]] * len(self.regionprops)
+            self.regionprops['$widths_list'] = [[]] * len(self.regionprops)
             masks = []
+            data_dict = {c:[] for c in self.channels}
             for l in self.regionprops.index:
                 x1, y1, x2, y2 = self.regionprops.loc[l, ['$opt-x1', '$opt-y1', '$opt-x2', '$opt-y2']]
-                masks.append(self.labeled_mask[x1:x2, y1:y2] == l)
+                if cache_mask:
+                    masks.append(self.labeled_mask[x1:x2, y1:y2] == l)
+                if cache_data:
+                    for c in self.channels:
+                        data_dict[c].append(self.get_channel_data(c)[x1:x2, y1:y2])
             if cache_mask:
                 self.regionprops['$mask'] = masks
+            if cache_data:
+                for c in self.channels:
+                    self.regionprops['${}'.format(c)] = data_dict[c]
 
     def get_particle_data(self,particle_id):
         """
@@ -357,6 +372,23 @@ class Patch:
                     print('feature ${}$ not found!'.format(k))
         self.regionprops['$include'] = (np.sum(_accept, axis=0) == len(_accept)) * 1
 
+    def save_particles(self,
+                       filename,
+                       filtered_only=True,
+                       as_dictionary=False):
+        if filtered_only:
+            subset=self.regionprops[self.regionprops['$include']==1].copy()
+            id_list = self.regionprops[self.regionprops['$include']==1].index
+        else:
+            subset = self.regionprops.copy()
+            id_list = self.regionprops.index
+        if as_dictionary:
+            particle_dict = {cid:self.get_particle_data(nid) for nid,cid in zip(id_list,
+                                                                                self.regionprops['$Cell_id'].values)}
+            pickle_save(particle_dict,filename)
+        else:
+            pickle_save(subset, filename)
+
     def _get_intensity_stats(self, channel):
         """
         Add basic intensity features to the regionprop table
@@ -380,6 +412,52 @@ class Patch:
         """
         for c in self.channels:
             self._get_intensity_stats(c)
+
+    def get_morphology_stats(self):
+        """
+
+        get particle morphological stats of all particles
+        -------
+
+        """
+        # measure widths
+        widths_list = []
+        length_profiles = []
+        widths_profiles = []
+
+        for midlines,outline,refined_outline in self.regionprops[['$midlines','$outline','$refined_outline']].values:
+            widths = []
+            if len(midlines)>0:
+                if len(refined_outline) > 0:
+                    _outline = refined_outline
+                elif len(outline) > 0:
+                    _outline = outline
+                for segment in midlines:
+                    widths.append(direct_intersect_distance(segment,_outline))
+                width_concat = np.concatenate([width[1:-1] for width in widths])
+                widths_profiles.append([np.median(width_concat)*self.pixel_microns,
+                                        np.std(width_concat)*self.pixel_microns,
+                                        np.max(width_concat)*self.pixel_microns,
+                                        np.percentile(width_concat,25)*self.pixel_microns,
+                                        np.percentile(width_concat,75)*self.pixel_microns])
+                length = np.sum([measure_length(midline) for midline in midlines]) * self.pixel_microns
+            else:
+                widths_profiles.append([0,0,0,0,0])
+                length = 0
+
+            length_profiles.append(length)
+            widths_list.append(widths)
+
+        self.regionprops['$widths_list'] = widths_profiles
+        self.regionprops['length [µm]'] = length_profiles
+        self.regionprops[['width_median [µm]',
+                          'width_std [µm]',
+                          'width_max [µm]',
+                          'width_Q1 [µm]',
+                          'width_Q3 [µm]']] = widths_profiles
+        sinuosities = self.regionprops['length [µm]'].values/(self.pixel_microns*self.regionprops['major_axis_length'])
+        sinuosities[(sinuosities<1)&(sinuosities>0.5)]=1
+        self.regionprops['sinuosity']=sinuosities
 
     def render_image_features(self, model='default', mode='default'):
         if isinstance(model, str):
@@ -483,6 +561,19 @@ class Patch:
                          pole_length=0.25,
                          method='zhang',
                          filtered_only=True):
+        """
+
+        Parameters
+        ----------
+        min_branch_length
+        pole_length
+        method
+        filtered_only
+
+        Returns
+        -------
+
+        """
         #
         midline_list = []
         cell_ids = self.regionprops.index
@@ -659,6 +750,19 @@ class Patch:
     def generate_multi_mask(self, model='default',
                               method=1,
                               channels=[], **kwargs):
+        """
+
+        Parameters
+        ----------
+        model
+        method
+        channels
+        kwargs
+
+        Returns
+        -------
+
+        """
         if len(channels) > len(self.channels):
             raise ValueError('Patch image had {} channels but {} channels were provided'.format(len(self.channels),
                                                                                                 len(channels)))

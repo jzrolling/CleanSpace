@@ -613,7 +613,11 @@ def skeleton_contour_intersect_points(skeleton, contour):
     return midpoints
 
 
-def measure_along_strip(line, img, width = 1, subpixel = 0.5 ,mode='mean'):
+def measure_along_strip(line,
+                        img,
+                        width = 1,
+                        upsampling = 1,
+                        mode='mean'):
     """
     Measure the intensity along a strip perpendicular to a line in an image.
     :param line: A numpy array of shape (n, 2) representing the line along which to measure intensity.
@@ -624,10 +628,10 @@ def measure_along_strip(line, img, width = 1, subpixel = 0.5 ,mode='mean'):
     :return: A numpy array of shape (p,) representing the intensity values along the strip.
     """
     unit_dxy = unit_perpendicular_vector(line, closed=False)
-    width_normalized_dxy = unit_dxy * subpixel
+    width_normalized_dxy = unit_dxy / upsampling
     copied_img = img.copy()
     data = bilinear_interpolate_numpy(copied_img, line.T[0], line.T[1])
-    for i in range(1, 1+ int(width * 0.5 / subpixel)):
+    for i in range(1, 1+ int(width * 0.5 * upsampling)):
         dxy = width_normalized_dxy * i
         v1 = line + dxy
         v2 = line - dxy
@@ -645,9 +649,12 @@ def measure_along_strip(line, img, width = 1, subpixel = 0.5 ,mode='mean'):
         return np.average(data, axis=0)
 
 
-def orthogonal_mesh(midline, contour, width_list,
+def orthogonal_mesh(midline,
+                    contour,
+                    width_list,
                     length=None,
-                    median_width=None, scale=2):
+                    median_width=None,
+                    upsampling=2):
     """
 
     """
@@ -656,8 +663,8 @@ def orthogonal_mesh(midline, contour, width_list,
     if type(median_width) not in [float, int]:
         median_width = np.median(width_list)
 
-    n_length = int(len(midline) * scale)
-    n_width = int(len(midline) * median_width * scale / length)
+    n_length = int(len(midline) * upsampling)
+    n_width = int(len(midline) * median_width * upsampling / length)
 
     edge_points = []
     subpixel_midline = spline_approximation(midline, n=n_length,
@@ -680,6 +687,25 @@ def orthogonal_mesh(midline, contour, width_list,
     mat = np.tile(np.arange(n_width + 1), (len(edge_points), 1))
     mat_x = x[:, np.newaxis] + mat * dxy[:, 0][:, np.newaxis]
     mat_y = y[:, np.newaxis] + mat * dxy[:, 1][:, np.newaxis]
-
     return np.array([mat_x, mat_y])
 
+def direct_intersect_distance(midline, contour):
+    v1, v2 = contour[:-1], contour[1:]
+    skel_x, skel_y = midline[1:-1].T
+    intersect_x, intersect_y = line_contour_intersect_matrix(midline[1:-1], contour)
+    dx_v1 = intersect_x - v1.T[0][:, np.newaxis]
+    dx_v2 = intersect_x - v2.T[0][:, np.newaxis]
+    dy_v1 = intersect_y - v1.T[1][:, np.newaxis]
+    dy_v2 = intersect_y - v2.T[1][:, np.newaxis]
+    dx = dx_v1 * dx_v2
+    dy = dy_v1 * dy_v2
+    dist_x = skel_x[np.newaxis, :] - intersect_x
+    dist_y = skel_y[np.newaxis, :] - intersect_y
+
+    non_boundry_points = np.where(np.logical_and(dy > 0, dx > 0))
+    dist_matrix = np.sqrt(dist_x ** 2 + dist_y ** 2)
+    dist_matrix[non_boundry_points] = np.inf
+    nearest_id_x = np.argsort(dist_matrix, axis=0)[:2]
+    nearest_id_y = np.linspace(0, dist_matrix.shape[1] - 1, dist_matrix.shape[1]).astype(int)
+    dists = dist_matrix[nearest_id_x[0], nearest_id_y] + dist_matrix[nearest_id_x[1], nearest_id_y]
+    return np.concatenate([[0], dists, [0]])

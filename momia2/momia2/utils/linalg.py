@@ -74,47 +74,6 @@ def unit_perpendicular_vector(data, closed=True):
     return unit_dxy
 
 
-def line_contour_intersect_matrix(line, contour, orthogonal_vectors=None):
-
-    """
-    Compute the intersection point(s) between a line and a contour.
-    Previously named "intersect_matrix"
-
-    :param line: A numpy array of shape (2, 2) representing the start and end points of a straight line.
-    :param contour: A numpy array of shape (n, 2) representing the points of the contour.
-    :param orthogonal_vectors: A numpy array of shape (n, 2) representing the unit perpendicular vectors of the contour.
-    :return: A tuple of numpy arrays representing the x and y coordinates of the intersection point(s).
-    """
-
-    if orthogonal_vectors is None:
-        dxy = unit_perpendicular_vector(line, closed=False)
-    else:
-        dxy = orthogonal_vectors
-    v1, v2 = contour[:-1], contour[1:]
-    x1, y1 = v1.T
-    x2, y2 = v2.T
-    x3, y3 = line.T
-    perp_xy = line + dxy
-    x4, y4 = perp_xy.T
-    A1 = y2 - y1
-    B1 = x1 - x2
-    C1 = A1 * x1 + B1 * y1
-    A2 = y4 - y3
-    B2 = x3 - x4
-    C2 = A2 * x3 + B2 * y3
-
-    A1B2 = A1[:, np.newaxis] * B2
-    A1C2 = A1[:, np.newaxis] * C2
-    B1A2 = B1[:, np.newaxis] * A2
-    B1C2 = B1[:, np.newaxis] * C2
-    C1A2 = C1[:, np.newaxis] * A2
-    C1B2 = C1[:, np.newaxis] * B2
-
-    intersect_x = (B1C2 - C1B2) / (B1A2 - A1B2)
-    intersect_y = (A1C2 - C1A2) / (A1B2 - B1A2)
-    return intersect_x, intersect_y
-
-
 @jit(nopython=True, cache=True)
 def intersect_lines(x1, y1, x2, y2, x3, y3, x4, y4):
     """
@@ -316,5 +275,4 @@ def line_contour_intersect_matrix(line, contour, orthogonal_vectors=None):
     intersect_x = (B1C2 - C1B2) / (B1A2 - A1B2)
     intersect_y = (A1C2 - C1A2) / (A1B2 - B1A2)
     return intersect_x, intersect_y
-
 

@@ -9,7 +9,8 @@ __all__ = ['multiscale_image_feature',
            'ratio_of_gaussian',
            'normalized_difference_of_gaussian',
            'gabor_kernel_bank',
-           'basic_intensity_features']
+           'basic_intensity_features',
+           'sinuosity']
 
 def multiscale_image_feature(image,
                              sigmas=(0.5, 0.8, 1.5, 3.5),
@@ -312,3 +313,14 @@ def basic_intensity_features(data):
                   skew(data.flatten()),
                   kurtosis(data.flatten())]
     return names, data_stats
+
+
+def sinuosity(midline):
+    if (midline[0]-midline[-1]).sum() == 0:
+        raise ValueError('Midline coordinates appear to be closed!')
+    end_to_end_dist = distance(midline[0],midline[-1])
+    length = measure_length(midline)
+    ret = round(length/end_to_end_dist, 3)
+    if ret < 1:
+        ret = 1.0
+    return ret

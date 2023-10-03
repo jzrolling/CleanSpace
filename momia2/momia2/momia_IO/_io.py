@@ -5,7 +5,7 @@ import numpy as np
 import tifffile
 import nd2reader as nd2
 
-__all__=['ImageLoader','sort2folder','save_model','load_model','imread']
+__all__=['ImageLoader','sort2folder','pickle_save','pickle_load','imread']
 
 class ImageLoader:
 
@@ -244,11 +244,11 @@ def _get_slice_tifffile(img_stack, axes, position=None, time=None, zplane=None, 
     return img_stack.external_obj.pages[int(flat_index)].asarray()
 
 
-def save_model(model, pickle_filename):
+def pickle_save(model, pickle_filename):
     pk.dump(model, open(pickle_filename, 'wb'))
 
 
-def load_model(pickle_filename):
+def pickle_load(pickle_filename):
     return pk.load(open(pickle_filename, 'rb'))
 
 def imread(file):
