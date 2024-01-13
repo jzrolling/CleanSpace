@@ -492,7 +492,8 @@ def extract_midline(mask,
                     outline,
                     pixel_microns=0.065,
                     min_branch_length=0.2,
-                    method='zhang'):
+                    method='zhang',
+                    max_iteration=15):
     """
     """
     from skimage import morphology
@@ -527,7 +528,7 @@ def extract_midline(mask,
                                        upsampling_factor=1/interp_distance)
         smooth_skel, _converged = midline_approximation(extended,
                                                         outline,
-                                                        max_iteration=5,
+                                                        max_iteration=max_iteration,
                                                         tolerance=0.15,
                                                         move_pole1 = False,
                                                         move_pole2 = False,

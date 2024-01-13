@@ -458,6 +458,7 @@ class Patch:
         sinuosities = self.regionprops['length [µm]'].values/(self.pixel_microns*self.regionprops['major_axis_length'])
         sinuosities[(sinuosities<1)&(sinuosities>0.5)]=1
         self.regionprops['sinuosity']=sinuosities
+        self.regionprops['branched']=[0 if len(x)==1 else 1 for x in self.regionprops['$midlines']]
 
     def render_image_features(self, model='default', mode='default'):
         if isinstance(model, str):
@@ -502,6 +503,8 @@ class Patch:
                      level=0.1,
                      dilation=False,
                      erosion=False,
+                     use_binary=False,
+                     use_sobel=False,
                      calculate_curvature=True,
                      angularity_window=15,
                      dark_background=False,
@@ -510,8 +513,10 @@ class Patch:
                      tolerance=0.3,
                      interp_distance=1,
                      min_segment_count=3,
+                     smooth_level=3,
                      update_mask=True):
-
+        if use_sobel:
+            sobel = filters.sobel(self.get_ref_image())
         if len(self.regionprops) > 0:
             bending_stat = []
             masks = []
@@ -526,7 +531,14 @@ class Patch:
                     ['$opt-x1', '$opt-y1', '$opt-x2', '$opt-y2', '$touching_edge']].values.astype(int)
                 mask = (self.labeled_mask[x1:x2, y1:y2] == label).astype(int)
                 if not touching_edge:
-                    data = self.get_ref_image()[x1:x2, y1:y2]
+
+                    if use_binary:
+                        data = None
+                    elif use_sobel:
+                        data = sobel[x1:x2, y1:y2]
+                        dark_background = True
+                    else:
+                        data = self.get_ref_image()[x1:x2, y1:y2]
                     outline = find_contour_marching_squares(mask, data,
                                                             level=level,
                                                             dilation=dilation,
@@ -536,7 +548,8 @@ class Patch:
                                                             approximate=approximate,
                                                             tolerance=tolerance,
                                                             interp_distance=interp_distance,
-                                                            min_segment_count=min_segment_count)
+                                                            min_segment_count=min_segment_count,
+                                                            smooth_level=smooth_level)
                     if calculate_curvature:
                         bending = -bend_angle_closed(outline, window=angularity_window)
                         bending_stat.append([bending.min(), bending.max(), bending.mean(),
@@ -557,6 +570,7 @@ class Patch:
                                   'mean_curvature', 'Q1_curvature', 'Q3_curvature']] = bending_stat
 
     def extract_midlines(self,
+                         max_iteration=15,
                          min_branch_length=0.2,
                          pole_length=0.25,
                          method='zhang',
@@ -593,7 +607,7 @@ class Patch:
             # if cell is convex, use fast mode
             else:
                 try:
-                    if solidity > 0.8 and np.array([cent_x,cent_y]).astype(int) in mask_coords:
+                    if solidity > 0.9 and np.array([cent_x,cent_y]).astype(int) in mask_coords:
                         if len(outline) > 100:
                             upsampling_factor=1
                         else:
@@ -603,12 +617,14 @@ class Patch:
                                                 centroid=np.array([cent_x,cent_y]),
                                                 pixel_microns=self.pixel_microns,
                                                 pole_length=pole_length,
-                                                upsampling_factor=upsampling_factor)
+                                                upsampling_factor=upsampling_factor,
+                                                max_iteration=max_iteration)
                     else:
                         midlines = extract_midline(mask, outline,
                                                     pixel_microns=self.pixel_microns,
                                                     min_branch_length=min_branch_length,
-                                                    method=method)
+                                                    method=method,
+                                                    max_iteration=max_iteration)
                 except:
                     midlines = []
             midline_list.append(midlines)

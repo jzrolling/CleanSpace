@@ -17,7 +17,7 @@ def find_contour_marching_squares(binary_mask,
                                   tolerance=0.3,
                                   interp_distance=1,
                                   min_segment_count=3,
-                                  ):
+                                  smooth_level = 3):
     """
     finds the outermost contour of a binary mask using the marching-squares algorithm.
     :param binary_mask: binary mask of the object
@@ -34,19 +34,17 @@ def find_contour_marching_squares(binary_mask,
     # smoothen mask
     binary_mask = smooth_binary_mask(binary_mask.astype(int),sigma=1)
 
-    # use local threshold to suppress shadow signals (usually from cell debris)
-    dil_mask = morphology.binary_dilation(binary_mask,morphology.disk(2))
-    th = filters.threshold_otsu(image[dil_mask == 1].flatten())
-    binary_mask = dil_mask * (image < th)
-
-    # erode or dilate
-    if erosion:
-        binary_mask = morphology.binary_erosion(binary_mask).astype(int)
-    if dilation:
-        binary_mask = morphology.binary_dilation(binary_mask).copy()
-
     # use the bright-field image as reference if available:
     if image is not None:
+        # use local threshold to suppress shadow signals (usually from cell debris)
+        if erosion:
+            binary_mask = morphology.binary_erosion(binary_mask).astype(int)
+        if dilation:
+            binary_mask = morphology.binary_dilation(binary_mask).copy()
+        th = filters.threshold_otsu(image[binary_mask == 1].flatten())
+        binary_mask = binary_mask * (image < th)
+        # erode or dilate
+
         if not identical_shapes([image, binary_mask]):
             raise ValueError('Input images are of different sizes!')
         if not dark_background:
@@ -55,14 +53,18 @@ def find_contour_marching_squares(binary_mask,
             image = normalize_image(gaussian_smooth(image,sigma=sigma),min_perc=0,max_perc=0.995)
         intensity_mask = binary_mask*image
     else:
-        intensity_mask = binary_mask
+        intensity_mask = binary_mask.copy().astype(float)
+        intensity_mask = min_max(intensity_mask)
+
     contour = measure.find_contours(intensity_mask, level=level)[0]
     if approximate:
         contour = simplify_polygon(contour,
                                    tolerance=tolerance,
                                    interp_distance=interp_distance,
                                    min_segment_count=min_segment_count)
-        contour = spline_approximation(contour,n=len(contour),smooth_factor=1,closed=True)
+    contour = spline_approximation(contour,
+                                   n=len(contour),
+                                   smooth_factor=smooth_level,closed=True)
     return contour
 
 

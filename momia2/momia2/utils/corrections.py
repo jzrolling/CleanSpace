@@ -59,8 +59,8 @@ def drift_correction(target_img, drift, max_drift=1000):
             return offset_image.astype(np.uint16)
         elif img_dtype == int:
             offset_image[offset_image >= 2147483647] = 2147483647
-        elif img_dtype == np.float:
-            return offset_image.astype(np.float)
+        elif img_dtype == float:
+            return offset_image.astype(float)
         elif img_dtype == np.uint12:
             offset_image[offset_image >= 4095] = 4095
             return offset_image.astype(np.uint12)

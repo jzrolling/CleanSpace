@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 # Define package name, version, and the author who doesn't know a thing about coding
 name = 'momia2'
-version = '0.0.2.dev5'
+version = '0.0.3.dev'
 author = 'jz-rolling'
 author_emails = ['juzhu@hsph.harvard.edu', 'zhujh@im.ac.cn']
 
@@ -31,10 +31,12 @@ requirements = [
     'seaborn==0.13.0',
     'opencv-python==4.8.1.78',
     'Pillow==10.0.1',
+    'pytest==7.4.2',
     'PyWavelets==1.4.1',
     'PyYAML==6.0.1',
     'read-roi==1.6.0',
     'tqdm==4.66.1',
+    'edt==2.3.1',
 ]
 
 # Define package classifiers
